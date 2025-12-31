@@ -14,6 +14,7 @@ import {
 } from "./db";
 import { runAgent, classifyProblem } from "./agent/engine";
 import { getToolDefinitions } from "./agent/industrial-tools";
+import { getAvailableMCPServers, listMCPTools, callMCPTool, logMCPCall, getMCPCallLogs } from "./mcp";
 
 // 工单路由
 const ticketRouter = router({
@@ -382,6 +383,53 @@ const toolRouter = router({
   })
 });
 
+// MCP路由
+const mcpRouter = router({
+  // 获取可用的MCP服务器
+  servers: protectedProcedure.query(async () => {
+    return getAvailableMCPServers();
+  }),
+
+  // 列出MCP服务器的工具
+  listTools: protectedProcedure
+    .input(z.object({ server: z.string() }))
+    .query(async ({ input }) => {
+      return listMCPTools(input.server);
+    }),
+
+  // 调用MCP工具
+  callTool: protectedProcedure
+    .input(z.object({
+      server: z.string(),
+      tool: z.string(),
+      params: z.record(z.string(), z.any())
+    }))
+    .mutation(async ({ input }) => {
+      const startTime = Date.now();
+      const result = await callMCPTool(input.server, input.tool, input.params);
+      const duration = Date.now() - startTime;
+      
+      // 记录调用日志
+      logMCPCall({
+        server: input.server,
+        tool: input.tool,
+        params: input.params,
+        result: result.content,
+        success: result.success,
+        duration
+      });
+      
+      return result;
+    }),
+
+  // 获取MCP调用日志
+  logs: protectedProcedure
+    .input(z.object({ limit: z.number().optional() }).optional())
+    .query(async ({ input }) => {
+      return getMCPCallLogs(input?.limit);
+    })
+});
+
 // 知识库路由
 const knowledgeRouter = router({
   // 列出知识
@@ -478,7 +526,8 @@ export const appRouter = router({
   ticket: ticketRouter,
   agent: agentRouter,
   tool: toolRouter,
-  knowledge: knowledgeRouter
+  knowledge: knowledgeRouter,
+  mcp: mcpRouter
 });
 
 export type AppRouter = typeof appRouter;

@@ -1,0 +1,165 @@
+name: mes-production-workflow
+displayName: MES生产问题处理流程
+description: 处理MES系统生产制造相关问题的标准流程
+version: "1.0"
+category: mes_production
+
+triggers:
+  categories:
+    - mes_production
+    - mes_quality
+  keywords:
+    - 生产
+    - 工单
+    - 排程
+    - 产量
+    - 良率
+    - 停机
+    - 换线
+
+tools:
+  - mes_query_production_order
+  - mes_query_equipment_status
+  - mes_query_quality_data
+  - scada_query_device_status
+  - knowledge_search
+
+steps:
+  - id: analyze_problem
+    name: 问题分析
+    type: llm
+    description: 分析用户描述的生产问题，提取关键信息
+    prompt: |
+      你是一位专业的MES生产系统运维专家。请分析以下生产问题：
+      
+      问题描述：{problem_description}
+      
+      请提取以下信息：
+      1. 问题类型（工单/排程/设备/质量/其他）
+      2. 涉及的产线或设备
+      3. 相关的工单号或批次号
+      4. 问题发生时间
+      5. 对生产的影响程度
+    output:
+      - problem_type
+      - production_line
+      - work_order
+      - occurrence_time
+      - impact_level
+
+  - id: query_production_order
+    name: 查询生产工单
+    type: tool
+    tool: mes_query_production_order
+    params:
+      order_no: "{analyze_problem.work_order}"
+      line: "{analyze_problem.production_line}"
+
+  - id: query_equipment
+    name: 查询设备状态
+    type: tool
+    condition: "analyze_problem.problem_type in ['设备', '停机']"
+    tool: mes_query_equipment_status
+    params:
+      line: "{analyze_problem.production_line}"
+
+  - id: query_scada
+    name: 查询SCADA数据
+    type: tool
+    condition: "analyze_problem.problem_type in ['设备', '停机', '质量']"
+    tool: scada_query_device_status
+    params:
+      device_id: "{analyze_problem.production_line}"
+
+  - id: query_quality
+    name: 查询质量数据
+    type: tool
+    condition: "analyze_problem.problem_type == '质量'"
+    tool: mes_query_quality_data
+    params:
+      batch_no: "{analyze_problem.work_order}"
+
+  - id: search_knowledge
+    name: 检索相关知识
+    type: tool
+    tool: knowledge_search
+    params:
+      query: "{problem_description}"
+      category: "fault_case"
+      system_type: "mes"
+      limit: 5
+
+  - id: diagnose
+    name: 问题诊断
+    type: llm
+    description: 基于收集的信息进行问题诊断
+    prompt: |
+      基于以下信息，对生产问题进行诊断：
+      
+      问题分析：{analyze_problem.output}
+      生产工单：{query_production_order.result}
+      设备状态：{query_equipment.result}
+      SCADA数据：{query_scada.result}
+      质量数据：{query_quality.result}
+      相关案例：{search_knowledge.result}
+      
+      请给出：
+      1. 问题根因分析
+      2. 对生产计划的影响
+      3. 是否需要紧急处理
+      4. 建议的处理优先级
+    output:
+      - root_cause
+      - production_impact
+      - is_urgent
+      - priority
+
+  - id: generate_solution
+    name: 生成解决方案
+    type: llm
+    description: 生成具体的解决方案和操作步骤
+    prompt: |
+      基于诊断结果，生成解决方案：
+      
+      问题诊断：{diagnose.output}
+      
+      请提供：
+      1. 紧急处理措施（如需要）
+      2. 具体解决步骤
+      3. 生产恢复建议
+      4. 后续跟踪事项
+    output:
+      - emergency_actions
+      - solution_steps
+      - recovery_plan
+      - follow_up_items
+
+response_template: |
+  ## MES生产问题处理报告
+  
+  ### 问题概述
+  - **问题类型**: {analyze_problem.problem_type}
+  - **产线/设备**: {analyze_problem.production_line}
+  - **工单号**: {analyze_problem.work_order}
+  - **影响程度**: {analyze_problem.impact_level}
+  
+  ### 问题诊断
+  **根因分析**: {diagnose.root_cause}
+  
+  **生产影响**: {diagnose.production_impact}
+  
+  **处理优先级**: {diagnose.priority}
+  
+  ### 解决方案
+  
+  #### 紧急措施
+  {generate_solution.emergency_actions}
+  
+  #### 解决步骤
+  {generate_solution.solution_steps}
+  
+  #### 恢复计划
+  {generate_solution.recovery_plan}
+  
+  ### 后续跟踪
+  {generate_solution.follow_up_items}

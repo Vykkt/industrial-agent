@@ -1,0 +1,122 @@
+name: equipment-fault
+displayName: 设备故障处理场景
+description: 处理工厂设备故障报警的场景配置
+version: "1.0"
+priority: high
+
+detection:
+  keywords:
+    - 故障
+    - 报警
+    - 停机
+    - 异常
+    - 损坏
+    - 卡死
+    - 过热
+    - 振动
+  systems:
+    - scada
+    - mes
+  categories:
+    - scada_alarm
+    - mes_production
+
+context:
+  description: |
+    设备故障是工厂运营中最常见的问题类型之一，需要快速响应和处理。
+    本场景涵盖各类设备故障的识别、诊断和处理流程。
+  
+  common_causes:
+    - 机械磨损
+    - 电气故障
+    - 传感器失灵
+    - 软件异常
+    - 操作不当
+    - 环境因素
+    - 维护不足
+
+tools_required:
+  primary:
+    - scada_query_alarms
+    - scada_query_device_status
+    - mes_query_equipment_status
+  secondary:
+    - scada_query_realtime_data
+    - mes_query_production_order
+    - knowledge_search
+  optional:
+    - plm_query_bom
+    - erp_query_inventory
+
+knowledge_domains:
+  - equipment_manual
+  - fault_case
+  - troubleshooting
+  - operation_guide
+
+escalation_rules:
+  - condition: "alarm_level == 'critical'"
+    action: "immediate_notification"
+    target: "maintenance_manager"
+  - condition: "downtime > 30min"
+    action: "escalate"
+    target: "production_manager"
+  - condition: "safety_risk == true"
+    action: "emergency_stop"
+    target: "safety_officer"
+
+response_sla:
+  critical: 5min
+  high: 15min
+  medium: 30min
+  low: 60min
+
+workflow_mapping:
+  scada_alarm: scada-alarm-workflow
+  mes_production: mes-production-workflow
+
+response_template: |
+  ## 设备故障处理报告
+  
+  ### 故障信息
+  - **设备名称**: {device_name}
+  - **故障类型**: {fault_type}
+  - **发生时间**: {occurrence_time}
+  - **严重程度**: {severity}
+  
+  ### 设备状态
+  {device_status}
+  
+  ### 报警详情
+  {alarm_details}
+  
+  ### 故障分析
+  **可能原因**:
+  {possible_causes}
+  
+  **历史案例参考**:
+  {historical_cases}
+  
+  ### 处理建议
+  **紧急措施**:
+  {emergency_actions}
+  
+  **排故步骤**:
+  {troubleshooting_steps}
+  
+  **恢复操作**:
+  {recovery_steps}
+  
+  ### 预防措施
+  {prevention_measures}
+
+metadata:
+  author: Industrial Agent System
+  created_at: "2025-01-01"
+  updated_at: "2025-01-01"
+  tags:
+    - equipment
+    - fault
+    - maintenance
+    - scada
+    - mes

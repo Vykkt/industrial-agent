@@ -1,0 +1,160 @@
+name: scada-alarm-workflow
+displayName: SCADA报警处理流程
+description: 处理SCADA系统设备报警的标准流程
+version: "1.0"
+category: scada_alarm
+
+triggers:
+  categories:
+    - scada_alarm
+    - scada_data
+  keywords:
+    - 报警
+    - 告警
+    - 异常
+    - 超限
+    - 故障
+    - 停机
+
+tools:
+  - scada_query_alarms
+  - scada_query_device_status
+  - scada_query_realtime_data
+  - mes_query_equipment_status
+  - knowledge_search
+
+priority: high
+timeout: 300
+
+steps:
+  - id: analyze_alarm
+    name: 报警分析
+    type: llm
+    description: 分析报警信息，判断严重程度
+    prompt: |
+      你是一位专业的SCADA系统运维专家。请分析以下报警信息：
+      
+      报警描述：{problem_description}
+      
+      请提取以下信息：
+      1. 报警类型（设备故障/参数超限/通讯异常/其他）
+      2. 涉及的设备或测点
+      3. 报警级别（紧急/重要/一般/提示）
+      4. 可能的影响范围
+      5. 是否需要立即处理
+    output:
+      - alarm_type
+      - device_or_point
+      - alarm_level
+      - impact_scope
+      - need_immediate_action
+
+  - id: query_alarms
+    name: 查询报警详情
+    type: tool
+    tool: scada_query_alarms
+    params:
+      device_id: "{analyze_alarm.device_or_point}"
+      status: "active"
+
+  - id: query_device_status
+    name: 查询设备状态
+    type: tool
+    tool: scada_query_device_status
+    params:
+      device_id: "{analyze_alarm.device_or_point}"
+
+  - id: query_realtime_data
+    name: 查询实时数据
+    type: tool
+    tool: scada_query_realtime_data
+    params:
+      point_ids: "{analyze_alarm.device_or_point}"
+
+  - id: search_knowledge
+    name: 检索故障案例
+    type: tool
+    tool: knowledge_search
+    params:
+      query: "{problem_description}"
+      category: "troubleshooting"
+      limit: 5
+
+  - id: diagnose
+    name: 故障诊断
+    type: llm
+    description: 基于收集的信息进行故障诊断
+    prompt: |
+      基于以下信息，对设备报警进行诊断：
+      
+      报警分析：{analyze_alarm.output}
+      报警详情：{query_alarms.result}
+      设备状态：{query_device_status.result}
+      实时数据：{query_realtime_data.result}
+      故障案例：{search_knowledge.result}
+      
+      请给出：
+      1. 故障根因判断
+      2. 当前设备风险评估
+      3. 是否需要停机处理
+      4. 建议的处理方式
+    output:
+      - fault_cause
+      - risk_assessment
+      - need_shutdown
+      - handling_method
+
+  - id: generate_solution
+    name: 生成处理方案
+    type: llm
+    description: 生成具体的故障处理方案
+    prompt: |
+      基于诊断结果，生成故障处理方案：
+      
+      故障诊断：{diagnose.output}
+      
+      请提供：
+      1. 紧急处理步骤（如需要）
+      2. 故障排除步骤
+      3. 设备恢复步骤
+      4. 安全注意事项
+      5. 预防措施建议
+    output:
+      - emergency_steps
+      - troubleshooting_steps
+      - recovery_steps
+      - safety_notes
+      - prevention_tips
+
+response_template: |
+  ## SCADA报警处理报告
+  
+  ### 报警概述
+  - **报警类型**: {analyze_alarm.alarm_type}
+  - **设备/测点**: {analyze_alarm.device_or_point}
+  - **报警级别**: {analyze_alarm.alarm_level}
+  - **影响范围**: {analyze_alarm.impact_scope}
+  
+  ### 故障诊断
+  **故障原因**: {diagnose.fault_cause}
+  
+  **风险评估**: {diagnose.risk_assessment}
+  
+  **是否需要停机**: {diagnose.need_shutdown}
+  
+  ### 处理方案
+  
+  #### 紧急处理
+  {generate_solution.emergency_steps}
+  
+  #### 故障排除
+  {generate_solution.troubleshooting_steps}
+  
+  #### 设备恢复
+  {generate_solution.recovery_steps}
+  
+  ### 安全注意事项
+  {generate_solution.safety_notes}
+  
+  ### 预防措施
+  {generate_solution.prevention_tips}
