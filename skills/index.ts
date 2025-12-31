@@ -190,7 +190,7 @@ export function matchWorkflow(category: string, keywords: string[]): Workflow | 
   let bestMatch: Workflow | undefined;
   let bestScore = 0;
 
-  for (const workflow of skillsConfig.workflows.values()) {
+  for (const workflow of Array.from(skillsConfig.workflows.values())) {
     let score = 0;
     
     // 类别匹配
@@ -201,7 +201,7 @@ export function matchWorkflow(category: string, keywords: string[]): Workflow | 
     // 关键词匹配
     if (workflow.triggers.keywords) {
       for (const kw of keywords) {
-        if (workflow.triggers.keywords.some(wkw => kw.includes(wkw) || wkw.includes(kw))) {
+        if (workflow.triggers.keywords.some((wkw: string) => kw.includes(wkw) || wkw.includes(kw))) {
           score += 2;
         }
       }
@@ -225,7 +225,7 @@ export function matchScenario(text: string, system?: string): Scenario | undefin
   let bestMatch: Scenario | undefined;
   let bestScore = 0;
 
-  for (const scenario of skillsConfig.scenarios.values()) {
+  for (const scenario of Array.from(skillsConfig.scenarios.values())) {
     let score = 0;
     
     // 系统匹配

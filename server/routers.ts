@@ -15,6 +15,10 @@ import {
 import { runAgent, classifyProblem } from "./agent/engine";
 import { getToolDefinitions } from "./agent/industrial-tools";
 import { getAvailableMCPServers, listMCPTools, callMCPTool, logMCPCall, getMCPCallLogs } from "./mcp";
+import { OrchestrationEngine } from "./orchestrator";
+
+// 初始化编排引擎
+const orchestrator = new OrchestrationEngine();
 
 // 工单路由
 const ticketRouter = router({
@@ -513,6 +517,72 @@ const knowledgeRouter = router({
     })
 });
 
+// 编排引擎路由
+const orchestratorRouter = router({
+  // 分析问题
+  analyze: protectedProcedure
+    .input(z.object({ problem: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      return orchestrator.analyzeProblem(input.problem);
+    }),
+
+  // 生成执行计划
+  plan: protectedProcedure
+    .input(z.object({
+      problemId: z.string(),
+      problem: z.string(),
+      analysis: z.object({
+        category: z.string(),
+        subcategory: z.string(),
+        severity: z.enum(['low', 'medium', 'high', 'critical']),
+        affectedSystems: z.array(z.string()),
+        requiredActions: z.array(z.string()),
+        suggestedMethod: z.enum(['api', 'mcp', 'rpa', 'skill', 'hybrid']),
+        confidence: z.number(),
+        reasoning: z.string()
+      })
+    }))
+    .mutation(async ({ input }) => {
+      return orchestrator.generatePlan(input.problemId, input.analysis, input.problem);
+    }),
+
+  // 执行计划
+  execute: protectedProcedure
+    .input(z.object({
+      plan: z.object({
+        id: z.string(),
+        problemId: z.string(),
+        method: z.enum(['api', 'mcp', 'rpa', 'skill', 'hybrid']),
+        steps: z.array(z.object({
+          id: z.string(),
+          order: z.number(),
+          method: z.enum(['api', 'mcp', 'rpa', 'skill']),
+          action: z.string(),
+          target: z.string(),
+          parameters: z.record(z.string(), z.any()),
+          expectedResult: z.string(),
+          timeout: z.number(),
+          retryCount: z.number(),
+          fallbackMethod: z.string().optional()
+        })),
+        estimatedDuration: z.number(),
+        riskLevel: z.enum(['low', 'medium', 'high']),
+        rollbackPlan: z.string().optional(),
+        approvalRequired: z.boolean()
+      })
+    }))
+    .mutation(async ({ input }) => {
+      return orchestrator.executePlan(input.plan as any);
+    }),
+
+  // 一站式处理问题
+  handle: protectedProcedure
+    .input(z.object({ problem: z.string().min(1) }))
+    .mutation(async ({ input }) => {
+      return orchestrator.handleProblem(input.problem);
+    })
+});
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -527,7 +597,8 @@ export const appRouter = router({
   agent: agentRouter,
   tool: toolRouter,
   knowledge: knowledgeRouter,
-  mcp: mcpRouter
+  mcp: mcpRouter,
+  orchestrator: orchestratorRouter
 });
 
 export type AppRouter = typeof appRouter;
