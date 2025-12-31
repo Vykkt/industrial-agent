@@ -175,3 +175,142 @@
     }
   }
 }
+
+/* ========== 工业Agent平台自定义样式 ========== */
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: oklch(0.94 0.008 250);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(0.7 0.02 250);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.6 0.02 250);
+}
+
+/* 状态标签样式 */
+.status-badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.status-pending {
+  @apply bg-amber-100 text-amber-800;
+}
+
+.status-processing {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.status-resolved {
+  @apply bg-green-100 text-green-800;
+}
+
+.status-failed {
+  @apply bg-red-100 text-red-800;
+}
+
+.status-closed {
+  @apply bg-gray-100 text-gray-800;
+}
+
+.status-waiting_feedback {
+  @apply bg-purple-100 text-purple-800;
+}
+
+/* 优先级标签 */
+.priority-urgent {
+  @apply bg-red-500 text-white;
+}
+
+.priority-high {
+  @apply bg-orange-500 text-white;
+}
+
+.priority-medium {
+  @apply bg-yellow-500 text-white;
+}
+
+.priority-low {
+  @apply bg-gray-400 text-white;
+}
+
+/* 系统类别颜色 */
+.category-erp {
+  @apply bg-indigo-100 text-indigo-800;
+}
+
+.category-mes {
+  @apply bg-emerald-100 text-emerald-800;
+}
+
+.category-plm {
+  @apply bg-purple-100 text-purple-800;
+}
+
+.category-scada {
+  @apply bg-cyan-100 text-cyan-800;
+}
+
+.category-oa {
+  @apply bg-pink-100 text-pink-800;
+}
+
+.category-iam {
+  @apply bg-orange-100 text-orange-800;
+}
+
+.category-hr {
+  @apply bg-teal-100 text-teal-800;
+}
+
+.category-knowledge {
+  @apply bg-slate-100 text-slate-800;
+}
+
+/* Agent 对话样式 */
+.chat-message-user {
+  @apply bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2;
+}
+
+.chat-message-assistant {
+  @apply bg-muted text-foreground rounded-2xl rounded-bl-sm px-4 py-2;
+}
+
+/* 工具卡片悬停效果 */
+.tool-card {
+  @apply transition-all duration-200;
+}
+
+.tool-card:hover {
+  @apply shadow-md -translate-y-0.5;
+}
+
+/* 动画 */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+/* 思考过程展示 */
+.thinking-step {
+  @apply border-l-2 border-blue-300 pl-4 py-2 my-2;
+}
+
+.thinking-step-action {
+  @apply border-l-2 border-emerald-400 pl-4 py-2 my-2;
+}
+
+.thinking-step-observation {
+  @apply border-l-2 border-amber-400 pl-4 py-2 my-2;
+}
