@@ -16,6 +16,20 @@ import { runAgent, classifyProblem } from "./agent/engine";
 import { getToolDefinitions } from "./agent/industrial-tools";
 import { getAvailableMCPServers, listMCPTools, callMCPTool, logMCPCall, getMCPCallLogs } from "./mcp";
 import { OrchestrationEngine } from "./orchestrator";
+import { 
+  PROVIDERS, 
+  getAllProviders, 
+  getProviderModels,
+  ModelProvider 
+} from "./llm/providers";
+import { 
+  setApiKey, 
+  getApiKey, 
+  isProviderConfigured, 
+  getConfiguredProviders,
+  createLLMClient 
+} from "./llm/client";
+import { executeBrowserTask } from "./browser-rpa";
 
 // 初始化编排引擎
 const orchestrator = new OrchestrationEngine();
@@ -583,6 +597,136 @@ const orchestratorRouter = router({
     })
 });
 
+// LLM路由
+const llmRouter = router({
+  // 获取所有提供商
+  providers: publicProcedure.query(() => {
+    return getAllProviders().map(({ provider, config }) => ({
+      id: provider,
+      name: config.displayName,
+      models: config.models,
+      configured: isProviderConfigured(provider),
+    }));
+  }),
+
+  // 获取已配置的提供商
+  configured: publicProcedure.query(() => {
+    return getConfiguredProviders();
+  }),
+
+  // 设置API Key
+  setApiKey: protectedProcedure
+    .input(z.object({
+      provider: z.enum(['deepseek', 'qwen', 'doubao', 'glm', 'minimax', 'claude', 'openai', 'gemini']),
+      apiKey: z.string().min(1)
+    }))
+    .mutation(async ({ input }) => {
+      setApiKey(input.provider as ModelProvider, input.apiKey);
+      return { success: true };
+    }),
+
+  // 测试模型连接
+  test: protectedProcedure
+    .input(z.object({
+      provider: z.enum(['deepseek', 'qwen', 'doubao', 'glm', 'minimax', 'claude', 'openai', 'gemini', 'builtin']),
+      model: z.string()
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const client = createLLMClient({
+          provider: input.provider as ModelProvider,
+          model: input.model
+        });
+        
+        const response = await client.call({
+          messages: [
+            { role: 'user', content: '你好，请用一句话回复' }
+          ],
+          max_tokens: 50
+        });
+        
+        return {
+          success: true,
+          response: response.choices[0]?.message?.content
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+    }),
+
+  // 调用LLM
+  chat: protectedProcedure
+    .input(z.object({
+      provider: z.enum(['deepseek', 'qwen', 'doubao', 'glm', 'minimax', 'claude', 'openai', 'gemini', 'builtin']),
+      model: z.string(),
+      messages: z.array(z.object({
+        role: z.enum(['system', 'user', 'assistant']),
+        content: z.string()
+      })),
+      maxTokens: z.number().optional(),
+      temperature: z.number().optional()
+    }))
+    .mutation(async ({ input }) => {
+      const client = createLLMClient({
+        provider: input.provider as ModelProvider,
+        model: input.model,
+        maxTokens: input.maxTokens,
+        temperature: input.temperature
+      });
+      
+      return client.call({
+        messages: input.messages,
+        max_tokens: input.maxTokens,
+        temperature: input.temperature
+      });
+    })
+});
+
+// 浏览器RPA路由
+const browserRpaRouter = router({
+  // 执行浏览器任务
+  execute: protectedProcedure
+    .input(z.object({
+      task: z.string().min(1),
+      provider: z.enum(['deepseek', 'qwen', 'doubao', 'glm', 'minimax', 'claude', 'openai', 'gemini', 'builtin']).default('builtin'),
+      model: z.string().default('default'),
+      maxSteps: z.number().min(1).max(50).default(20),
+      timeout: z.number().min(10000).max(600000).default(300000),
+      verbose: z.boolean().default(false)
+    }))
+    .mutation(async ({ input }) => {
+      const result = await executeBrowserTask(
+        input.task,
+        {
+          provider: input.provider as ModelProvider,
+          model: input.model
+        },
+        {
+          maxSteps: input.maxSteps,
+          timeout: input.timeout,
+          verbose: input.verbose
+        }
+      );
+      
+      return {
+        status: result.status,
+        result: result.result,
+        error: result.error,
+        steps: result.previousSteps.map(s => ({
+          step: s.step,
+          thought: s.thought,
+          action: s.action,
+          success: s.result.success,
+          error: s.result.error
+        })),
+        totalSteps: result.currentStep
+      };
+    })
+});
+
 export const appRouter = router({
   system: systemRouter,
   auth: router({
@@ -598,7 +742,9 @@ export const appRouter = router({
   tool: toolRouter,
   knowledge: knowledgeRouter,
   mcp: mcpRouter,
-  orchestrator: orchestratorRouter
+  orchestrator: orchestratorRouter,
+  llm: llmRouter,
+  browserRpa: browserRpaRouter
 });
 
 export type AppRouter = typeof appRouter;

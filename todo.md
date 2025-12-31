@@ -76,3 +76,25 @@
 - [x] 计划生成器（步骤、超时、重试、回退）
 - [x] 多方式执行器（API/MCP/RPA/Skill）
 - [x] 一站式处理入口（handleProblem）
+
+
+## 新增功能 (v1.3) - 多模型接入与浏览器RPA
+
+### 多模型API接入
+- [x] DeepSeek API接入
+- [x] 通义千问(Qwen) API接入
+- [x] 豆包(Doubao) API接入
+- [x] 智谱GLM API接入
+- [x] MiniMax API接入
+- [x] Claude API接入
+- [x] OpenAI GPT API接入
+- [x] Google Gemini API接入
+- [x] 模型选择器：支持在界面切换不同模型
+- [x] API Key管理：安全存储和管理各厂商API Key
+
+### 浏览器RPA能力完善
+- [x] 调研Manus浏览器RPA实现机制（browser-use、OpenManus）
+- [x] 调研Manus开发文档和GitHub开源项目
+- [x] 集成browser-use架构（Playwright + LLM决策）
+- [x] 浏览器自动化：页面导航、元素操作、数据提取
+- [x] 工业软件Web版操作：金蝶云、用友云等B/S架构系统
