@@ -160,3 +160,196 @@ export const systemConfig = mysqlTable("system_config", {
 
 export type SystemConfig = typeof systemConfig.$inferSelect;
 export type InsertSystemConfig = typeof systemConfig.$inferInsert;
+
+/**
+ * 系统连接配置表 - 存储MES/ERP等系统的连接信息
+ * P0改进：支持灵活的现场配置
+ */
+export const systemConnections = mysqlTable("system_connections", {
+  id: int("id").autoincrement().primaryKey(),
+  systemType: mysqlEnum("systemType", [
+    "kingdee", "yonyou", "sap", "oracle", "custom"
+  ]).notNull(),
+  systemName: varchar("systemName", { length: 128 }).notNull(),
+  apiEndpoint: varchar("apiEndpoint", { length: 512 }).notNull(),
+  authType: mysqlEnum("authType", [
+    "basic", "oauth2", "api_key", "custom"
+  ]).notNull(),
+  authConfig: json("authConfig").$type<Record<string, any>>().notNull(),
+  status: mysqlEnum("status", [
+    "active", "inactive", "testing", "failed"
+  ]).default("inactive").notNull(),
+  lastTestedAt: timestamp("lastTestedAt"),
+  testResult: json("testResult"),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SystemConnection = typeof systemConnections.$inferSelect;
+export type InsertSystemConnection = typeof systemConnections.$inferInsert;
+
+/**
+ * 工具配置表 - 存储工具的运行时配置
+ * P0改进：支持工具的灵活配置和模式切换
+ */
+export const toolConfigurations = mysqlTable("tool_configurations", {
+  id: int("id").autoincrement().primaryKey(),
+  toolId: int("toolId").notNull(),
+  executionMode: mysqlEnum("executionMode", [
+    "mock", "simulation", "real", "dry_run"
+  ]).default("mock").notNull(),
+  mockData: json("mockData"),
+  parameters: json("parameters").$type<Record<string, any>>(),
+  retryConfig: json("retryConfig").$type<{
+    maxRetries: number;
+    retryDelay: number;
+    backoffMultiplier: number;
+  }>(),
+  timeoutMs: int("timeoutMs").default(30000),
+  isEnabled: boolean("isEnabled").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ToolConfiguration = typeof toolConfigurations.$inferSelect;
+export type InsertToolConfiguration = typeof toolConfigurations.$inferInsert;
+
+/**
+ * 工作流配置表 - 存储工作流定义
+ * P0改进：支持工作流的持久化和配置管理
+ */
+export const workflowConfigurations = mysqlTable("workflow_configurations", {
+  id: int("id").autoincrement().primaryKey(),
+  workflowName: varchar("workflowName", { length: 128 }).notNull().unique(),
+  description: text("description"),
+  steps: json("steps").$type<Array<{
+    id: string;
+    name: string;
+    type: string;
+    toolId?: number;
+    condition?: Record<string, any>;
+    timeout?: number;
+    retryable?: boolean;
+  }>>().notNull(),
+  branches: json("branches").$type<Array<{
+    id: string;
+    condition: Record<string, any>;
+    targetStepId: string;
+  }>>(),
+  version: int("version").default(1).notNull(),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type WorkflowConfiguration = typeof workflowConfigurations.$inferSelect;
+export type InsertWorkflowConfiguration = typeof workflowConfigurations.$inferInsert;
+
+/**
+ * 工作流执行事件表 - 事件溯源模式
+ * P0改进：支持工作流持久化和恢复
+ */
+export const workflowEvents = mysqlTable("workflow_events", {
+  id: int("id").autoincrement().primaryKey(),
+  workflowExecutionId: varchar("workflowExecutionId", { length: 64 }).notNull(),
+  eventType: mysqlEnum("eventType", [
+    "started", "step_executed", "step_failed", "branch_taken",
+    "paused", "resumed", "completed", "failed", "cancelled"
+  ]).notNull(),
+  eventData: json("eventData").$type<Record<string, any>>(),
+  stepId: varchar("stepId", { length: 64 }),
+  errorMessage: text("errorMessage"),
+  version: int("version").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type WorkflowEvent = typeof workflowEvents.$inferSelect;
+export type InsertWorkflowEvent = typeof workflowEvents.$inferInsert;
+
+/**
+ * 工作流快照表 - 定期保存工作流状态
+ * P0改进：支持快速恢复
+ */
+export const workflowSnapshots = mysqlTable("workflow_snapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  workflowExecutionId: varchar("workflowExecutionId", { length: 64 }).notNull().unique(),
+  workflowConfigId: int("workflowConfigId").notNull(),
+  state: json("state").$type<Record<string, any>>().notNull(),
+  currentStepId: varchar("currentStepId", { length: 64 }),
+  version: int("version").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type WorkflowSnapshot = typeof workflowSnapshots.$inferSelect;
+export type InsertWorkflowSnapshot = typeof workflowSnapshots.$inferInsert;
+
+/**
+ * 知识库切片表 - 支持向量检索
+ * P1改进：支持RAG混合检索
+ */
+export const knowledgeChunks = mysqlTable("knowledge_chunks", {
+  id: int("id").autoincrement().primaryKey(),
+  knowledgeId: int("knowledgeId").notNull(),
+  chunkIndex: int("chunkIndex").notNull(),
+  content: text("content").notNull(),
+  embedding: text("embedding"),
+  metadata: json("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type KnowledgeChunk = typeof knowledgeChunks.$inferSelect;
+export type InsertKnowledgeChunk = typeof knowledgeChunks.$inferInsert;
+
+/**
+ * 多Agent任务表 - 支持多智能体协同
+ * P1改进：支持多Agent任务管理
+ */
+export const multiAgentTasks = mysqlTable("multi_agent_tasks", {
+  id: int("id").autoincrement().primaryKey(),
+  taskId: varchar("taskId", { length: 64 }).notNull().unique(),
+  parentTaskId: varchar("parentTaskId", { length: 64 }),
+  agentId: varchar("agentId", { length: 64 }).notNull(),
+  taskType: mysqlEnum("taskType", [
+    "lead", "sub", "parallel"
+  ]).notNull(),
+  objective: text("objective").notNull(),
+  status: mysqlEnum("status", [
+    "pending", "running", "completed", "failed", "cancelled"
+  ]).default("pending").notNull(),
+  result: json("result"),
+  errorMessage: text("errorMessage"),
+  startedAt: timestamp("startedAt"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MultiAgentTask = typeof multiAgentTasks.$inferSelect;
+export type InsertMultiAgentTask = typeof multiAgentTasks.$inferInsert;
+
+/**
+ * Agent消息队列表 - 支持Agent间通信
+ * P1改进：支持多Agent协同通信
+ */
+export const agentMessages = mysqlTable("agent_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  messageId: varchar("messageId", { length: 64 }).notNull().unique(),
+  fromAgentId: varchar("fromAgentId", { length: 64 }).notNull(),
+  toAgentId: varchar("toAgentId", { length: 64 }).notNull(),
+  messageType: mysqlEnum("messageType", [
+    "task_assignment", "progress_update", "result", "error_recovery"
+  ]).notNull(),
+  messageData: json("messageData").$type<Record<string, any>>().notNull(),
+  status: mysqlEnum("status", [
+    "pending", "delivered", "processed", "failed"
+  ]).default("pending").notNull(),
+  retryCount: int("retryCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  processedAt: timestamp("processedAt"),
+});
+
+export type AgentMessage = typeof agentMessages.$inferSelect;
+export type InsertAgentMessage = typeof agentMessages.$inferInsert;
